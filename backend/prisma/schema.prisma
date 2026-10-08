@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Ticket {
+  id                Int             @id @default(autoincrement())
+  freshdeskId       Int             @unique @map("freshdesk_id")
+  subject           String
+  description       String
+  customerEmail     String?         @map("customer_email")
+  priority          Int             @default(1)
+  status            String          @default("open")
+  category          String?
+  tier              String?
+  confidenceScore   Float?          @map("confidence_score")
+  autoResolved      Boolean         @default(false) @map("auto_resolved")
+  escalationReason  String?         @map("escalation_reason")
+  botResponse       String?         @map("bot_response")
+  assignedTo        String?         @map("assigned_to")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  history           TicketHistory[]
+
+  @@map("tickets")
+}
+
+model TicketHistory {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int      @map("ticket_id")
+  action    String
+  details   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@map("ticket_history")
+}

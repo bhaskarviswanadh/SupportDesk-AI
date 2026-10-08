@@ -1,73 +1,14 @@
-# Documentation (except README)
-*.md
-!README.md
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
+node_modules/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Environment Variables
 .env
-.env.local
-
-# Logs
-*.log
-logs/
-
-# Database
 *.db
-*.sqlite
-*.sqlite3
-faiss_index/
-faiss_document_store.db
-
-# OS
+*.db-journal
+bot.log
 .DS_Store
-Thumbs.db
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# AI Models (cached)
-models/
-.cache/
-
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
+coverage/
+*.log
+frontend/dist/
+backend/dist/
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/.cache/
