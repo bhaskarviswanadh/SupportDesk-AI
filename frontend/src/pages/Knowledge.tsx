@@ -35,7 +35,7 @@ export function Knowledge() {
     <div>
       <PageHeader
         title="Knowledge base"
-        subtitle="Ask the FAQ corpus via Hugging Face embeddings (or keyword fallback)."
+        subtitle="Ask the FAQ corpus via Gemini embeddings (or keyword fallback)."
       />
 
       <Panel className="p-5 max-w-3xl">

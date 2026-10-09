@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Settings as SettingsIcon } from "lucide-react";
-import { SiHuggingface, SiGooglegemini } from "react-icons/si";
+import { SiGooglegemini } from "react-icons/si";
 import { api, type HealthResponse, type PublicConfig } from "../api/client";
 import {
   Badge,
@@ -83,20 +83,26 @@ export function Settings() {
 
         <Panel className="p-5">
           <div className="flex items-center gap-2 mb-4">
-            <SiHuggingface className="size-4 text-[var(--blue)]" />
-            <h2 className="font-semibold">Hugging Face</h2>
+            <SiGooglegemini className="size-4 text-[var(--orange)]" />
+            <h2 className="font-semibold">Google Gemini</h2>
           </div>
           <ul className="space-y-3 text-sm">
             <li className="flex justify-between gap-3">
-              <span className="text-[var(--muted)]">Token</span>
-              <Badge tone={config?.hfConfigured ? "ok" : "warn"}>
-                {config?.hfConfigured ? "set" : "missing"}
+              <span className="text-[var(--muted)]">API key</span>
+              <Badge tone={config?.geminiConfigured ? "ok" : "warn"}>
+                {config?.geminiConfigured ? "set" : "missing"}
               </Badge>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-[var(--muted)]">Chat model</span>
+              <span className="font-mono text-xs">
+                {config?.geminiModel ?? health?.ai.geminiModel ?? "—"}
+              </span>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-[var(--muted)]">Embedding model</span>
               <span className="text-right text-xs font-mono max-w-[60%] break-all">
-                {config?.embeddingModel}
+                {config?.embeddingModel ?? health?.ai.embeddingModel ?? "—"}
               </span>
             </li>
             <li className="flex justify-between gap-3">
@@ -109,30 +115,9 @@ export function Settings() {
               <span className="text-[var(--muted)]">Docs loaded</span>
               <span>{health?.ai.docsLoaded ?? "—"}</span>
             </li>
-          </ul>
-        </Panel>
-
-        <Panel className="p-5 md:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <SiGooglegemini className="size-4 text-[var(--orange)]" />
-            <h2 className="font-semibold">Google Gemini</h2>
-          </div>
-          <ul className="space-y-3 text-sm max-w-xl">
-            <li className="flex justify-between gap-3">
-              <span className="text-[var(--muted)]">API key</span>
-              <Badge tone={config?.geminiConfigured ? "ok" : "warn"}>
-                {config?.geminiConfigured ? "set" : "missing"}
-              </Badge>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-[var(--muted)]">Model</span>
-              <span className="font-mono text-xs">
-                {config?.geminiModel ?? health?.ai.geminiModel ?? "—"}
-              </span>
-            </li>
             <li className="text-[var(--muted)] text-xs leading-relaxed">
-              Used by <span className="font-semibold text-[var(--ink)]">Ask Assistant</span>.
-              Set <code className="text-[var(--blue)]">GEMINI_API_KEY</code> in{" "}
+              Powers Ask Assistant and knowledge-base search. Set{" "}
+              <code className="text-[var(--blue)]">GEMINI_API_KEY</code> in{" "}
               <code className="text-[var(--blue)]">backend/.env</code> then restart the API.
             </li>
           </ul>

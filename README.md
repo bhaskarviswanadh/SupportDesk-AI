@@ -1,14 +1,14 @@
 # SupportDesk AI
 
-AI-powered customer ticket resolution: **React + TypeScript** frontend and **Express + TypeScript** backend, with Hugging Face embeddings/RAG, **Gemini** chat assistant, and Freshdesk integration.
+AI-powered customer ticket resolution: **React + TypeScript** frontend and **Express + TypeScript** backend, with **Gemini** chat + embeddings/RAG, and Freshdesk integration.
 
 ## Stack
 
 | Layer | Tech |
 |-------|------|
 | Frontend | React 18, Vite, TypeScript, Tailwind, Lucide, react-icons |
-| Backend | Express, TypeScript, Prisma, SQLite, Zod |
-| AI | Hugging Face Inference API (RAG) + Google Gemini (Ask Assistant) |
+| Backend | Express, TypeScript, Prisma, Neon PostgreSQL, Zod |
+| AI | Google Gemini (Ask Assistant + knowledge-base embeddings) |
 | Ticketing | Freshdesk REST API + webhooks |
 
 ## Project structure
@@ -17,7 +17,7 @@ AI-powered customer ticket resolution: **React + TypeScript** frontend and **Exp
 ├── frontend/          # React SPA (port 5173)
 ├── backend/           # Express API (port 8000)
 │   ├── docs/          # FAQ knowledge base (.txt)
-│   ├── prisma/        # SQLite schema
+│   ├── prisma/        # Neon PostgreSQL schema
 │   └── src/
 └── README.md
 ```
@@ -29,7 +29,7 @@ AI-powered customer ticket resolution: **React + TypeScript** frontend and **Exp
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env — set JWT_SECRET, GEMINI_API_KEY (for chat), HF_API_TOKEN (optional), Freshdesk vars
+# Edit .env — set DATABASE_URL (Neon), JWT_SECRET, GEMINI_API_KEY, Freshdesk vars
 npm install
 npx prisma db push
 npm run dev
@@ -48,10 +48,14 @@ npm run dev
 
 UI: `http://localhost:5173`
 
-### 3. Sign in
+### 3. Database (Neon)
+
+Users, tickets, and history live in **Neon PostgreSQL**. Create a project at [console.neon.tech](https://console.neon.tech), copy the pooled connection string into `backend/.env` as `DATABASE_URL`, then run `npx prisma db push`.
+
+### 4. Sign in
 
 1. Open the UI — you’ll land on **Sign in**
-2. Click **Create one** → register with name, email, password (min 6 chars)
+2. Click **Create one** → register with name, email, password (min 6 chars) — stored in Neon
 3. After login, Dashboard and all app pages unlock
 4. Use **Sign out** in the sidebar to leave
 
@@ -64,18 +68,17 @@ Protected API routes require a JWT (`Authorization: Bearer <token>`). Freshdesk 
 | Variable | Description |
 |----------|-------------|
 | `PORT` | API port (default `8000`) |
-| `DATABASE_URL` | Prisma SQLite URL (`file:./tickets.db`) |
+| `DATABASE_URL` | Neon PostgreSQL connection string (`postgresql://...?sslmode=require`) |
 | `CORS_ORIGIN` | Frontend origin (`http://localhost:5173`) |
 | `FRESHDESK_DOMAIN` | Freshdesk subdomain |
 | `FRESHDESK_API_KEY` | Freshdesk API key |
 | `FRESHDESK_WEBHOOK_SECRET` | Webhook verification secret |
-| `HF_API_TOKEN` | Hugging Face token for embeddings |
-| `HF_EMBEDDING_MODEL` | Embedding model id |
-| `GEMINI_API_KEY` | Google Gemini API key for Ask Assistant |
-| `GEMINI_MODEL` | Gemini model id (default `gemini-3.8-flash`) |
+| `GEMINI_API_KEY` | Google Gemini API key (chat + embeddings) |
+| `GEMINI_MODEL` | Gemini chat model id (default `gemini-3.8-flash`) |
+| `GEMINI_EMBEDDING_MODEL` | Embedding model id (default `text-embedding-004`) |
 
-Without `HF_API_TOKEN`, classification still works (keywords) and RAG falls back to keyword search over `backend/docs/`.  
-**Ask Assistant** requires `GEMINI_API_KEY` (free-tier Gemini key from Google AI Studio).
+Without `GEMINI_API_KEY`, classification still works (keywords) and RAG falls back to keyword search over `backend/docs/`.  
+**Ask Assistant** and semantic knowledge search require `GEMINI_API_KEY` (from Google AI Studio).
 
 ### Frontend (`.env`)
 
@@ -107,7 +110,7 @@ Without `HF_API_TOKEN`, classification still works (keywords) and RAG falls back
 - **Knowledge** — RAG against FAQ docs
 - **Ask Assistant** — Gemini chatbot grounded on FAQ docs
 - **Tickets** — list/detail + reprocess
-- **Settings** — Freshdesk / HF / Gemini status (read-only)
+- **Settings** — Freshdesk / Gemini status (read-only)
 
 ## License
 

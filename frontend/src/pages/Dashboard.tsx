@@ -123,7 +123,7 @@ export function Dashboard() {
                 </Badge>
               </li>
               <li className="flex justify-between gap-3">
-                <span className="text-[var(--muted)]">HF embeddings</span>
+                <span className="text-[var(--muted)]">Gemini embeddings</span>
                 <Badge tone={health.ai.embeddingsReady ? "ok" : "warn"}>
                   {health.ai.embeddingsReady ? "ready" : "keyword fallback"}
                 </Badge>

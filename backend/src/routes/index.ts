@@ -175,10 +175,9 @@ export function createRoutes(deps: Deps): Router {
       freshdeskApiKeyMasked: key
         ? `${key.slice(0, 4)}${"*".repeat(Math.max(0, key.length - 8))}${key.slice(-4)}`
         : null,
-      hfConfigured: Boolean(config.hf.apiToken),
-      embeddingModel: config.hf.embeddingModel,
       geminiConfigured: gemini.isConfigured,
       geminiModel: config.gemini.model,
+      embeddingModel: config.gemini.embeddingModel,
       corsOrigin: config.corsOrigin,
       port: config.port,
     });

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config.js";
 
 export type ClassificationResult = {
@@ -7,16 +8,6 @@ export type ClassificationResult = {
   confidence: number;
   category: string;
 };
-
-type Embedder = {
-  (text: string, options?: Record<string, unknown>): Promise<{
-    data: Float32Array | number[];
-  }>;
-};
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0;
@@ -32,31 +23,19 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-function meanPool(embedding: number[] | number[][]): number[] {
-  if (!Array.isArray(embedding) || embedding.length === 0) return [];
-  if (typeof embedding[0] === "number") {
-    return embedding as number[];
-  }
-  const rows = embedding as number[][];
-  const dims = rows[0]?.length ?? 0;
-  const pooled = new Array(dims).fill(0);
-  for (const row of rows) {
-    for (let i = 0; i < dims; i++) pooled[i] += row[i];
-  }
-  for (let i = 0; i < dims; i++) pooled[i] /= rows.length;
-  return pooled;
-}
-
 export class AIEngine {
   private docs: Record<string, string> = {};
   private docTexts: string[] = [];
   private embeddedDocs: string[] = [];
   private docEmbeddings: number[][] = [];
   private ready = false;
-  private embeddingProvider: "hf" | "local" | "none" = "none";
-  private localEmbedder: Embedder | null = null;
+  private embeddingProvider: "gemini" | "none" = "none";
+  private client: GoogleGenerativeAI | null = null;
 
   async initialize(): Promise<void> {
+    if (config.gemini.apiKey) {
+      this.client = new GoogleGenerativeAI(config.gemini.apiKey);
+    }
     this.loadDocs();
     await this.embedDocs();
     this.ready = true;
@@ -74,9 +53,9 @@ export class AIEngine {
       ready: this.ready,
       docsLoaded: this.docTexts.length,
       embeddingsReady: this.docEmbeddings.length > 0,
-      hfConfigured: Boolean(config.hf.apiToken),
-      embeddingModel: config.hf.embeddingModel,
+      embeddingModel: config.gemini.embeddingModel,
       embeddingProvider: this.embeddingProvider,
+      geminiConfigured: Boolean(config.gemini.apiKey),
     };
   }
 
@@ -105,32 +84,28 @@ export class AIEngine {
     this.embeddedDocs = [];
     if (this.docTexts.length === 0) return;
 
-    // Prefer HF Inference if token works; otherwise free local MiniLM
-    if (config.hf.apiToken) {
-      try {
-        console.log("Creating document embeddings via Hugging Face...");
-        await this.embedAllWith((text) => this.embedTextHf(text));
-        this.embeddingProvider = "hf";
-        console.log(`Loaded ${this.docEmbeddings.length} HF embeddings`);
-        return;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(`HF embeddings unavailable (${message}). Falling back to local model…`);
-        this.docEmbeddings = [];
-        this.embeddedDocs = [];
-      }
-    } else {
-      console.warn("HF_API_TOKEN not set — trying local embeddings");
+    if (!this.client || !config.gemini.apiKey) {
+      console.warn("GEMINI_API_KEY not set — using keyword RAG fallback");
+      this.embeddingProvider = "none";
+      return;
     }
 
     try {
-      console.log("Creating document embeddings locally (Xenova MiniLM)...");
-      await this.ensureLocalEmbedder();
-      await this.embedAllWith((text) => this.embedTextLocal(text));
-      this.embeddingProvider = "local";
-      console.log(`Loaded ${this.docEmbeddings.length} local embeddings`);
+      console.log("Creating document embeddings via Gemini...");
+      for (const text of this.docTexts) {
+        const embedding = await this.embedText(text.slice(0, 8000));
+        if (embedding.length) {
+          this.embeddedDocs.push(text);
+          this.docEmbeddings.push(embedding);
+        }
+      }
+      if (this.docEmbeddings.length === 0) {
+        throw new Error("No embeddings were produced");
+      }
+      this.embeddingProvider = "gemini";
+      console.log(`Loaded ${this.docEmbeddings.length} Gemini embeddings`);
     } catch (err) {
-      console.error("Local embedding failed:", err);
+      console.error("Gemini embedding failed:", err);
       this.docEmbeddings = [];
       this.embeddedDocs = [];
       this.embeddingProvider = "none";
@@ -138,97 +113,13 @@ export class AIEngine {
     }
   }
 
-  private async embedAllWith(
-    embedFn: (text: string) => Promise<number[]>
-  ): Promise<void> {
-    for (const text of this.docTexts) {
-      const embedding = await embedFn(text.slice(0, 2000));
-      if (embedding.length) {
-        this.embeddedDocs.push(text);
-        this.docEmbeddings.push(embedding);
-      }
-    }
-    if (this.docEmbeddings.length === 0) {
-      throw new Error("No embeddings were produced");
-    }
-  }
-
-  private async ensureLocalEmbedder(): Promise<void> {
-    if (this.localEmbedder) return;
-    const { pipeline, env } = await import("@xenova/transformers");
-    // Cache models under backend/.cache
-    env.cacheDir = path.join(path.dirname(config.docsPath), ".cache");
-    this.localEmbedder = (await pipeline(
-      "feature-extraction",
-      "Xenova/all-MiniLM-L6-v2"
-    )) as unknown as Embedder;
-  }
-
-  private async embedTextLocal(text: string): Promise<number[]> {
-    if (!this.localEmbedder) return [];
-    const output = await this.localEmbedder(text, {
-      pooling: "mean",
-      normalize: true,
-    });
-    return Array.from(output.data);
-  }
-
-  private async embedTextHf(text: string): Promise<number[]> {
-    if (!config.hf.apiToken) return [];
-
-    const url = `https://router.huggingface.co/hf-inference/models/${config.hf.embeddingModel}/pipeline/feature-extraction`;
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.hf.apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: text }),
-      });
-
-      if (response.status === 503 || response.status === 504) {
-        await sleep(1500 * (attempt + 1));
-        continue;
-      }
-
-      if (!response.ok) {
-        const body = await response.text();
-        if (response.status === 402) {
-          throw new Error(
-            "HF Inference has no remaining credits (402). Using free local embeddings instead."
-          );
-        }
-        if (response.status === 403) {
-          throw new Error(
-            "HF token lacks Inference Providers permission."
-          );
-        }
-        throw new Error(`HF embedding failed (${response.status}): ${body}`);
-      }
-
-      const result = (await response.json()) as
-        | number[]
-        | number[][]
-        | number[][][];
-      if (
-        Array.isArray(result) &&
-        Array.isArray(result[0]) &&
-        Array.isArray((result[0] as number[])[0])
-      ) {
-        return meanPool(result[0] as number[][]);
-      }
-      return meanPool(result as number[] | number[][]);
-    }
-
-    throw new Error("HF embedding timed out while model was loading");
-  }
-
   private async embedText(text: string): Promise<number[]> {
-    if (this.embeddingProvider === "hf") return this.embedTextHf(text);
-    if (this.embeddingProvider === "local") return this.embedTextLocal(text);
-    return [];
+    if (!this.client) return [];
+    const model = this.client.getGenerativeModel({
+      model: config.gemini.embeddingModel,
+    });
+    const result = await model.embedContent(text);
+    return result.embedding.values ?? [];
   }
 
   categorizeTicket(subject: string, description: string): ClassificationResult {

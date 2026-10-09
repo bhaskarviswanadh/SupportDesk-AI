@@ -53,8 +53,8 @@ export type HealthResponse = {
     ready: boolean;
     docsLoaded: number;
     embeddingsReady: boolean;
-    hfConfigured: boolean;
     embeddingModel: string;
+    embeddingProvider?: string;
     geminiConfigured?: boolean;
     geminiModel?: string;
   };
@@ -113,10 +113,9 @@ export type PublicConfig = {
   freshdeskDomain: string | null;
   freshdeskApiKeySet: boolean;
   freshdeskApiKeyMasked: string | null;
-  hfConfigured: boolean;
-  embeddingModel: string;
   geminiConfigured: boolean;
   geminiModel: string;
+  embeddingModel: string;
   corsOrigin: string;
   port: number;
 };
